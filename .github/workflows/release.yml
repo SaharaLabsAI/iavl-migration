@@ -27,37 +27,40 @@ jobs:
       - name: Build binary
         run: |
           mkdir -p dist
-          BIN_NAME="migrate-v2-linux-${{ matrix.goarch }}"
           if [ "${{ matrix.goarch }}" = "arm64" ]; then
             echo "Building ARM64 binary using Docker"
             docker run --rm -v $PWD:/src -w /src --platform linux/arm64 golang:1.23 \
-            bash -c "CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags '-s -w' -o dist/$BIN_NAME ."
+            bash -c "CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags '-s -w' -o dist/migrate-v2-linux-arm64 ."
           else
             echo "Building AMD64 binary natively"
             CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
-            go build -ldflags "-s -w" -o dist/$BIN_NAME .
+            go build -ldflags "-s -w" -o dist/migrate-v2-linux-amd64 .
           fi
 
-      - name: Package binary and generate SHA256
+      - name: Package binary with tar.gz
         run: |
-          BIN_NAME="migrate-v2-linux-${{ matrix.goarch }}"
-          TAR_NAME="${BIN_NAME}.tar.gz"
-          tar -czf dist/$TAR_NAME -C dist $BIN_NAME
-          sha256sum dist/$TAR_NAME > dist/${TAR_NAME}.sha256
-          cat dist/${TAR_NAME}.sha256
+          for bin in dist/migrate-v2-linux-*; do
+            tar -czf "${bin}.tar.gz" -C dist "$(basename $bin)"
+            sha256sum "${bin}.tar.gz" > "${bin}.sha256"
+          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: migrate-v2-${{ matrix.goarch }}
           path: |
+            dist/migrate-v2-linux-${{ matrix.goarch }}
             dist/migrate-v2-linux-${{ matrix.goarch }}.tar.gz
-            dist/migrate-v2-linux-${{ matrix.goarch }}.tar.gz.sha256
+            dist/migrate-v2-linux-${{ matrix.goarch }}.sha256
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -65,19 +68,16 @@ jobs:
 
       - name: Generate release notes with SHA256
         run: |
-          echo "## Release Notes" > release-notes.md
+          echo "## SHA256 Checksums" > release-notes.md
+          cat dist/*.sha256 >> release-notes.md
+          echo -e "\n## Git commits since last tag" >> release-notes.md
           git log $(git describe --tags --abbrev=0 @^)..@ --pretty='* %s (%h)' >> release-notes.md
-          echo "" >> release-notes.md
-          echo "## SHA256 Checksums" >> release-notes.md
-          for f in dist/*.sha256; do
-            cat $f >> release-notes.md
-          done
           cat release-notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/*.tar.gz
+          files: dist/**
           body_path: release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
