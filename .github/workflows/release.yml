@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'   
+      - 'v*'
 
 permissions:
   contents: write
@@ -14,8 +14,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        goos: [linux, darwin]
         goarch: [amd64, arm64]
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,29 +25,28 @@ jobs:
         with:
           go-version: '1.23.x'
 
-      - name: Install cross build deps for linux/arm64
-        if: matrix.goos == 'linux' && matrix.goarch == 'arm64'
+      - name: Install cross-compiler for arm64
+        if: matrix.goarch == 'arm64'
         run: |
           sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
-          aarch64-linux-gnu-gcc --version
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
       - name: Build binary
         run: |
           mkdir -p dist
-          CC=""
-          if [[ "${{ matrix.goos }}" == "linux" && "${{ matrix.goarch }}" == "arm64" ]]; then
-            CC=aarch64-linux-gnu-gcc
+          export CGO_ENABLED=1
+          if [ "${{ matrix.goarch }}" = "arm64" ]; then
+            export CC=aarch64-linux-gnu-gcc
           fi
-          CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CC=$CC \
-          go build -ldflags "-s -w" -o dist/migrate-v2-${{ matrix.goos }}-${{ matrix.goarch }} .
+          GOOS=linux GOARCH=${{ matrix.goarch }} \
+          go build -ldflags "-s -w" -o dist/migrate-v2-linux-${{ matrix.goarch }} .
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: migrate-v2-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/migrate-v2-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: migrate-v2-linux-${{ matrix.goarch }}
+          path: dist/migrate-v2-linux-${{ matrix.goarch }}
 
   release:
     needs: build
