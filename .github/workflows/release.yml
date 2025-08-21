@@ -27,6 +27,9 @@ jobs:
       - name: Build binary
         run: |
           mkdir -p dist
+          if [[ "${{ matrix.goos }}" == "linux" && "${{ matrix.goarch }}" == "arm64" ]]; then
+            export CC=aarch64-linux-gnu-gcc
+          fi
           CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
           go build -ldflags "-s -w" -o dist/migrate-v2-${{ matrix.goos }}-${{ matrix.goarch }} .
 
