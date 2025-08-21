@@ -12,7 +12,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
         goarch: [amd64, arm64]
 
@@ -25,27 +24,23 @@ jobs:
         with:
           go-version: '1.23.x'
 
-      - name: Install cross-compiler for arm64
-        if: matrix.goarch == 'arm64'
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
       - name: Build binary
         run: |
           mkdir -p dist
-          export CGO_ENABLED=1
           if [ "${{ matrix.goarch }}" = "arm64" ]; then
-            export CC=aarch64-linux-gnu-gcc
+            echo "Building ARM64 binary using Docker"
+            docker run --rm -v $PWD:/src -w /src --platform linux/arm64 golang:1.23 \
+            bash -c "CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags '-s -w' -o dist/migrate-v2-linux-arm64 ."
+          else
+            echo "Building AMD64 binary natively"
+            CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+            go build -ldflags "-s -w" -o dist/migrate-v2-linux-amd64 .
           fi
-          GOOS=linux GOARCH=${{ matrix.goarch }} \
-          go build -ldflags "-s -w" -o dist/migrate-v2-linux-${{ matrix.goarch }} .
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: migrate-v2-linux-${{ matrix.goarch }}
+          name: migrate-v2-${{ matrix.goarch }}
           path: dist/migrate-v2-linux-${{ matrix.goarch }}
 
   release:
