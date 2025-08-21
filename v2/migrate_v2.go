@@ -33,7 +33,7 @@ func Command() *cobra.Command {
 }
 
 func V2toV3Command() *cobra.Command { // 2.0.2 --> 2.2.0
-	// e.g.: ./migrate v2 migrate --old-iavl2-path ~/.saharad/data/iavl2 --new-iavl2-path ~/.saharad/data/iavl3 --concurrent true
+	// e.g.: ./migrate v2 start --old-iavl2-path ~/.saharad/data/iavl2 --new-iavl2-path ~/.saharad/data/iavl3 --concurrent true
 	var (
 		dbV2, dbV3   string
 		storeKeysStr string
@@ -41,7 +41,7 @@ func V2toV3Command() *cobra.Command { // 2.0.2 --> 2.2.0
 	)
 
 	cmd := &cobra.Command{
-		Use:   "migrate",
+		Use:   "start",
 		Short: "migrate iavl2/ from v2.0.2 to v2.2.0 in sqlite",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var storeKeys []string
