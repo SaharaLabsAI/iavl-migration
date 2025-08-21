@@ -24,10 +24,10 @@ shardID = (version - 1) / 500000 + 1
 
 ```bash
 # Migrate all stores
-./migrate v2 v2tov3 --db-v2 /path/to/iavl2 --db-v3 /path/to/iavl3
+./migrate v2 start --old-iavl2-path ~/.saharad/data/iavl2 --new-iavl2-path ~/.saharad/data/iavl3
 
 # Migrate specific stores
-./migrate v2 v2tov3 --db-v2 /path/to/iavl2 --db-v3 /path/to/iavl3 --store-keys evm,bank
+./migrate v2 start --old-iavl2-path ~/.saharad/data/iavl2 --new-iavl2-path ~/.saharad/data/iavl3 --store-keys evm,bank
 ```
 
 The migration process will:
@@ -38,26 +38,9 @@ The migration process will:
 ### 2. Check Hash Values
 
 ```bash
-./migrate v2 check-hash --db-v2 /path/to/iavl2 --db-v3 /path/to/iavl3 --store-key evm
+./migrate v2 check-hash --old-iavl2-path /path/to/iavl2 --new-iavl2-path /path/to/iavl3 --store-key evm
 ```
 
-### 3. Check Sharding Status
-
-```bash
-# Check sharding status of original database
-./migrate v2 check-shards --db-path /path/to/iavl2
-
-# Check sharding status of migrated database
-./migrate v2 check-shards --db-path /path/to/iavl3
-```
-
-### 4. Fix Missing Shard Tables
-
-If you encounter "no such table: tree_X" errors after migration, you can use this command to fix:
-
-```bash
-./migrate v2 fix-missing-shard --db-path /path/to/iavl3
-```
 
 ## Migration Process Details
 

@@ -497,13 +497,13 @@ func CheckHash() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&dbv2, "db-v2", "", "Path to the v2 root directory")
-	cmd.Flags().StringVar(&dbv3, "db-v3", "", "Path to the v3 root directory")
+	cmd.Flags().StringVar(&dbv2, "old-iavl2-path", "", "Path to the v2 root directory")
+	cmd.Flags().StringVar(&dbv3, "new-iavl2-path", "", "Path to the v3 root directory")
 	cmd.Flags().StringVar(&sk, "store-key", "", "The store which is going to be checked")
-	if err := cmd.MarkFlagRequired("db-v2"); err != nil {
+	if err := cmd.MarkFlagRequired("old-iavl2-path"); err != nil {
 		panic(err)
 	}
-	if err := cmd.MarkFlagRequired("db-v3"); err != nil {
+	if err := cmd.MarkFlagRequired("new-iavl2-path"); err != nil {
 		panic(err)
 	}
 	if err := cmd.MarkFlagRequired("store-key"); err != nil {
