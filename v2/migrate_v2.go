@@ -32,7 +32,8 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func V2toV3Command() *cobra.Command {
+func V2toV3Command() *cobra.Command { // 2.0.2 --> 2.2.0
+	// e.g.: ./migrate v2 migrate --old-iavl2-path ~/.saharad/data/iavl2 --new-iavl2-path ~/.saharad/data/iavl3 --concurrent true
 	var (
 		dbV2, dbV3   string
 		storeKeysStr string
@@ -40,8 +41,8 @@ func V2toV3Command() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "v2tov3",
-		Short: "migrate iavl2/ from v2 to v3 in sqlite",
+		Use:   "migrate",
+		Short: "migrate iavl2/ from v2.0.2 to v2.2.0 in sqlite",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var storeKeys []string
 			if storeKeysStr != "" {
@@ -50,12 +51,12 @@ func V2toV3Command() *cobra.Command {
 			return migrate(dbV2, dbV3, storeKeys, concurrent)
 		},
 	}
-	cmd.Flags().StringVar(&dbV2, "db-v2", "", "Path to v2 iavl2/ directory")
-	cmd.Flags().StringVar(&dbV3, "db-v3", "", "Path to v3 iavl3/ directory")
+	cmd.Flags().StringVar(&dbV2, "old-iavl2-path", "", "Path to v2 iavl2/ directory")
+	cmd.Flags().StringVar(&dbV3, "new-iavl2-path", "", "Path to v3 iavl3/ directory")
 	cmd.Flags().StringVar(&storeKeysStr, "store-keys", "", "Comma-separated list of store keys to migrate (default: all)")
 	cmd.Flags().BoolVar(&concurrent, "concurrent", false, "Enable concurrent migration of stores (default: false)")
-	cmd.MarkFlagRequired("db-v2")
-	cmd.MarkFlagRequired("db-v3")
+	cmd.MarkFlagRequired("old-iavl2-path")
+	cmd.MarkFlagRequired("new-iavl2-path")
 	return cmd
 }
 
