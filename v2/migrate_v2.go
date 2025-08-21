@@ -33,9 +33,9 @@ func Command() *cobra.Command {
 }
 
 func V2toV3Command() *cobra.Command { // 2.0.2 --> 2.2.0
-	// e.g.: ./migrate v2 start --old-iavl2-path ~/.saharad/data/iavl2 --new-iavl2-path ~/.saharad/data/iavl3 --concurrent true
+	// e.g.: ./migrate v2 start --iavl2-path ~/.saharad/data/iavl2 --concurrent true
 	var (
-		dbV2, dbV3   string
+		dbV2         string
 		storeKeysStr string
 		concurrent   bool
 	)
@@ -48,19 +48,43 @@ func V2toV3Command() *cobra.Command { // 2.0.2 --> 2.2.0
 			if storeKeysStr != "" {
 				storeKeys = strings.Split(storeKeysStr, ",")
 			}
-			return migrate(dbV2, dbV3, storeKeys, concurrent)
+			return migrate(dbV2, storeKeys, concurrent)
 		},
 	}
-	cmd.Flags().StringVar(&dbV2, "old-iavl2-path", "", "Path to v2 iavl2/ directory")
-	cmd.Flags().StringVar(&dbV3, "new-iavl2-path", "", "Path to v3 iavl3/ directory")
+	cmd.Flags().StringVar(&dbV2, "iavl2-path", "", "Path to v2 iavl2/ directory")
+	// cmd.Flags().StringVar(&dbV3, "new-iavl2-path", "", "Path to v3 iavl3/ directory")
 	cmd.Flags().StringVar(&storeKeysStr, "store-keys", "", "Comma-separated list of store keys to migrate (default: all)")
 	cmd.Flags().BoolVar(&concurrent, "concurrent", false, "Enable concurrent migration of stores (default: false)")
-	cmd.MarkFlagRequired("old-iavl2-path")
-	cmd.MarkFlagRequired("new-iavl2-path")
+	cmd.MarkFlagRequired("iavl2-path")
 	return cmd
 }
 
-func migrate(baseOld, baseNew string, storeKeys []string, concurrent bool) error {
+func migrate(iavl2Path string, storeKeys []string, concurrent bool) error {
+
+	// Prepare directories: move the original directory to backup and create a fresh one
+	baseNew := iavl2Path
+	baseOld := iavl2Path + ".bak"
+
+	// Ensure backup does not already exist
+	if _, err := os.Stat(baseOld); err == nil {
+		return fmt.Errorf("backup path already exists: %s", baseOld)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat backup path %s: %w", baseOld, err)
+	}
+
+	// Ensure source exists and rename to backup
+	if _, err := os.Stat(iavl2Path); err != nil {
+		return fmt.Errorf("source path %s not found to backup: %w", iavl2Path, err)
+	}
+	log.Printf("renaming %s to %s", iavl2Path, baseOld)
+	if err := os.Rename(iavl2Path, baseOld); err != nil {
+		return fmt.Errorf("rename %s to %s: %w", iavl2Path, baseOld, err)
+	}
+
+	// Create new empty target directory
+	if err := os.MkdirAll(baseNew, 0o777); err != nil {
+		return fmt.Errorf("create new path %s: %w", baseNew, err)
+	}
 	stores, err := getStoreKeys(baseOld, storeKeys)
 	if err != nil {
 		return err
@@ -115,7 +139,7 @@ func migrateStore(store, baseOld, baseNew string) error {
 		}
 	} else {
 		errMsg := fmt.Sprintf("tree.sqlite not found: %s", oldTreePath)
-		log.Printf(errMsg)
+		log.Print(errMsg)
 		return errors.New(errMsg)
 	}
 	log.Printf("migrate tree.sqlite successfully, store: %s", store)
@@ -128,7 +152,7 @@ func migrateStore(store, baseOld, baseNew string) error {
 		}
 	} else {
 		errMsg := fmt.Sprintf("changelog.sqlite not found: %s", oldChangelogPath)
-		log.Printf(errMsg)
+		log.Print(errMsg)
 		return errors.New(errMsg)
 	}
 	log.Printf("migrate changelog.sqlite successfully, store: %s", store)

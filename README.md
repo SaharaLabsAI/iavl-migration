@@ -24,16 +24,19 @@ shardID = (version - 1) / 500000 + 1
 
 ```bash
 # Migrate all stores
-./migrate v2 start --old-iavl2-path ~/.saharad/data/iavl2 --new-iavl2-path ~/.saharad/data/iavl3
+./migrate v2 start ./migrate v2 start --iavl2-path ~/.saharad/data/iavl2
 
 # Migrate specific stores
-./migrate v2 start --old-iavl2-path ~/.saharad/data/iavl2 --new-iavl2-path ~/.saharad/data/iavl3 --store-keys evm,bank
+./migrate v2 start ./migrate v2 start --iavl2-path ~/.saharad/data/iavl2 --store-keys evm,bank
 ```
 
 The migration process will:
-1. Analyze version distribution in the original database
-2. Calculate required shard tables
-3. Reorganize data according to sharding logic
+1. Move the origin iavl2/ to iavl2.bak/
+2. Create an empty iavl2 directory
+3. Analyze version distribution in the original database
+4. Calculate required shard tables
+5. Reorganize data according to sharding logic
+6. Restart chain with the new binary
 
 ### 2. Check Hash Values
 
@@ -76,6 +79,5 @@ WHERE version >= 1 AND version <= 500000
 
 ## Important Notes
 
-- Please backup original data before migration
 - Ensure sufficient disk space is available
 - Migration process may take a long time depending on data size
