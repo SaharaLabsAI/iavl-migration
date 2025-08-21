@@ -12,6 +12,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         goos: [linux, darwin]
         goarch: [amd64, arm64]
@@ -23,6 +24,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23.x'
+
+      - name: Install cross build deps for linux/arm64
+        if: matrix.goos == 'linux' && matrix.goarch == 'arm64'
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+          aarch64-linux-gnu-gcc --version
 
       - name: Build binary
         run: |
