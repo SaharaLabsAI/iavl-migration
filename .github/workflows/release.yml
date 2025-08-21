@@ -27,7 +27,7 @@ jobs:
       - name: Build binary
         run: |
           mkdir -p dist
-          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+          CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
           go build -ldflags "-s -w" -o dist/migrate-v2-${{ matrix.goos }}-${{ matrix.goarch }} .
 
       - name: Upload artifacts
