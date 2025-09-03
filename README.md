@@ -1,22 +1,6 @@
-# IAVL v2 to v3 Migration Tool
+# IAVL v2.0.2 to v2.2.0 Migration Tool
 
-This tool is used to migrate IAVL v2 databases to v3 format. The v3 version introduces a sharding mechanism to improve performance.
-
-## Sharding Mechanism Overview
-
-### Data Storage Differences: v2 vs v3
-
-- **v2**: Branch node data is stored in the `tree_1` table (single table)
-- **v3**: Branch node data is stored in sharded tables by version range, with each shard containing 500,000 versions
-  - `tree_1`: versions 1-500,000
-  - `tree_2`: versions 500,001-1,000,000
-  - `tree_3`: versions 1,000,001-1,500,000
-  - And so on...
-
-### Shard Calculation Formula
-```
-shardID = (version - 1) / 500000 + 1
-```
+This tool is used to migrate IAVL v2.0.2 databases to v2.2.0 format. The v2.2.0 version introduces a sharding mechanism to improve performance.
 
 ## Usage
 
@@ -24,10 +8,10 @@ shardID = (version - 1) / 500000 + 1
 
 ```bash
 # Migrate all stores
-./migrate v2 start ./migrate v2 start --iavl2-path ~/.saharad/data/iavl2
+./migrate v2 start --iavl2-path ~/.saharad/data/iavl2
 
 # Migrate specific stores
-./migrate v2 start ./migrate v2 start --iavl2-path ~/.saharad/data/iavl2 --store-keys evm,bank
+./migrate v2 start --iavl2-path ~/.saharad/data/iavl2 --store-keys evm,bank
 ```
 
 The migration process will:
@@ -41,7 +25,7 @@ The migration process will:
 ### 2. Check Hash Values
 
 ```bash
-./migrate v2 check-hash --old-iavl2-path /path/to/iavl2 --new-iavl2-path /path/to/iavl3 --store-key evm
+./migrate v2 check-hash --old-iavl2-path /path/to/iavl2 --new-iavl2-path /path/to/iavl2-new --store-key evm
 ```
 
 
@@ -63,6 +47,20 @@ The migration tool processes data in the following order:
 3. **Tree Data Sharding**: If tree_1 table has data, migrates according to sharding logic
 
 ### 3. Shard Calculation
+Data Storage Differences: v2.0.2 vs v2.2.0
+
+- **v2.0.2**: Branch node data is stored in the `tree_1` table (single table)
+- **v2.2.0**: Branch node data is stored in sharded tables by version range, with each shard containing 500,000 versions
+  - `tree_1`: versions 1-500,000
+  - `tree_2`: versions 500,001-1,000,000
+  - `tree_3`: versions 1,000,001-1,500,000
+  - And so on...
+
+Shard Calculation Formula
+```
+shardID = (version - 1) / 500000 + 1
+```
+
 Calculate required shard tables based on version range:
 - Version range 1-500,000 → only needs shard 1
 - Version range 1-1,000,000 → needs shards 1, 2
