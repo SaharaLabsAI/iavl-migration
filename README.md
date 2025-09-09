@@ -6,9 +6,9 @@ This tool is used to migrate data from iavl1 to iavl2.2.0. In iavl1, all state d
 ### Usage
 ```sh
 # Migrate all data with default goleveldb
-./migrate v1 all --root /Users/wenqi/.saharad
+./migrate v1 all --root ~/.saharad
 # Migrate all data with pebbledb
-./migrate v1 all --root /Users/wenqi/.saharad --db-type pebbledb
+./migrate v1 all --root ~/.saharad --db-type pebbledb
 ```
 
 After the migration, the original application.db will be renamed to application.db.origin. The migrated data will be in application.db and iavl2.
