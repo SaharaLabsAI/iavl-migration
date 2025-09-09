@@ -30,16 +30,16 @@ jobs:
           if [ "${{ matrix.goarch }}" = "arm64" ]; then
             echo "Building ARM64 binary using Docker"
             docker run --rm -v $PWD:/src -w /src --platform linux/arm64 golang:1.23 \
-            bash -c "CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags '-s -w' -o dist/migrate-v2-linux-arm64 ."
+            bash -c "CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags '-s -w' -o dist/migrate-linux-arm64 ."
           else
             echo "Building AMD64 binary natively"
             CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
-            go build -ldflags "-s -w" -o dist/migrate-v2-linux-amd64 .
+            go build -ldflags "-s -w" -o dist/migrate-linux-amd64 .
           fi
 
       - name: Package binary with tar.gz
         run: |
-          for bin in dist/migrate-v2-linux-*; do
+          for bin in dist/migrate-linux-*; do
             tar -czf "${bin}.tar.gz" -C dist "$(basename $bin)"
             sha256sum "${bin}.tar.gz" > "${bin}.sha256"
           done
@@ -47,11 +47,11 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: migrate-v2-${{ matrix.goarch }}
+          name: migrate-${{ matrix.goarch }}
           path: |
-            dist/migrate-v2-linux-${{ matrix.goarch }}
-            dist/migrate-v2-linux-${{ matrix.goarch }}.tar.gz
-            dist/migrate-v2-linux-${{ matrix.goarch }}.sha256
+            dist/migrate-linux-${{ matrix.goarch }}
+            dist/migrate-linux-${{ matrix.goarch }}.tar.gz
+            dist/migrate-linux-${{ matrix.goarch }}.sha256
 
   release:
     needs: build
