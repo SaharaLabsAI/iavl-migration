@@ -23,7 +23,7 @@ build:
 
 # Build for multiple platforms
 .PHONY: build-all
-build-all: build-linux build-windows build-darwin
+build-all: build-linux build-darwin
 
 .PHONY: build-linux
 build-linux:
