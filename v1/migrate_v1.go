@@ -1051,10 +1051,10 @@ func PrepareCommitStore(storeKeys []string, v2appPath string, iavl2Dir string) (
 	return commitStore, nil
 }
 
-func PrepareCommitStoreWithDB(storeKeys []string, iavl2Dir string, earliestHeight int64, scRawDb corestore.KVStoreWithBatch) (*commitment.CommitStore, error) {
+func PrepareCommitStoreWithDB(storeKeys []string, iavl2Dir string, loadVersion int64, scRawDb corestore.KVStoreWithBatch) (*commitment.CommitStore, error) {
 	metadata := commitment.NewMetadataStore(scRawDb)
 
-	removedStoreKeys, err := metadata.GetRemovedStoreKeys(uint64(earliestHeight))
+	removedStoreKeys, err := metadata.GetRemovedStoreKeys(uint64(loadVersion))
 	if err != nil {
 		return nil, err
 	}
@@ -1091,12 +1091,12 @@ func PrepareCommitStoreWithDB(storeKeys []string, iavl2Dir string, earliestHeigh
 		return nil, err
 	}
 
-	if err = commitStore.LoadVersion(uint64(earliestHeight)); err != nil {
-		fmt.Println("PrepareCommitStore LoadVersion failed, version: ", earliestHeight, "err: ", err.Error())
+	if err = commitStore.LoadVersion(uint64(loadVersion)); err != nil {
+		fmt.Println("PrepareCommitStore LoadVersion failed, version: ", loadVersion, "err: ", err.Error())
 
 		return nil, err
 	}
-	fmt.Println("PrepareCommitStore LoadVersion version: ", earliestHeight)
+	fmt.Println("PrepareCommitStore LoadVersion version: ", loadVersion)
 
 	return commitStore, nil
 }
@@ -1252,7 +1252,7 @@ func ConvertStateChanges(cs *iavl.ChangeSet, sk string, version uint64) corestor
 }
 
 func applyChangeSetCommand() *cobra.Command { // migrate all version changeset from earliest+1 to latest height
-	// ./sahara-store-migrate v0 apply-changesets --v1-app /Users/wenqi/.saharad/data/application.db --v2-app /Users/wenqi/.saharad/data/application-v2.db --v2-iavl2 /Users/wenqi/.saharad/data/iavl2 --root /Users/wenqi/.saharad --migrate-from 3275518
+	// ./sahara-store-migrate v1 apply-changesets --v1-app /Users/wenqi/.saharad/data/application.db --v2-app /Users/wenqi/.saharad/data/application-v2.db --v2-iavl2 /Users/wenqi/.saharad/data/iavl2 --root /Users/wenqi/.saharad --migrate-from 3275518
 
 	var (
 		// dataPath    string
@@ -1321,15 +1321,21 @@ func applyChangeSetCommand() *cobra.Command { // migrate all version changeset f
 				storeKeys = append(storeKeys, k)
 			}
 
-			fmt.Println("Preparing CommitStore")
-			commitStore, err := PrepareCommitStoreWithDB(storeKeys, v2iavl2Path, earliestHeight, v2db)
-			if err != nil {
-				panic(err)
-			}
-
 			fmt.Println("Start applying changesets")
 			if migrateFrom > 0 {
 				from = migrateFrom
+			}
+
+			// 使用实际的起始版本加载 commit store
+			startVersion := earliestHeight
+			if migrateFrom > 0 && migrateFrom > earliestHeight {
+				startVersion = migrateFrom // 从 migrateFrom 开始，因为 ApplyChangeSet 会从 from+1 开始处理
+			}
+
+			fmt.Println("Preparing CommitStore with start version:", startVersion)
+			commitStore, err := PrepareCommitStoreWithDB(storeKeys, v2iavl2Path, startVersion, v2db)
+			if err != nil {
+				panic(err)
 			}
 			if err = ApplyChangeSet(v1appPath, storeKeys, from, to, commitStore, v1db.DB, dbType); err != nil {
 				panic(err)
