@@ -487,7 +487,7 @@ func allCommand() *cobra.Command { // migrate all version include historic data
 			fmt.Println("latest version from v0 application is ", appLatestVersion)
 
 			if appLatestVersion < earliestHeight {
-				return errors.New(fmt.Sprintf("invalid version, appLatestVersion < earliestHeight is not allowed. appLatestVersion: %d, earliestHeight: %d", appLatestVersion, earliestHeight))
+				return fmt.Errorf("invalid version, appLatestVersion < earliestHeight is not allowed. appLatestVersion: %d, earliestHeight: %d", appLatestVersion, earliestHeight)
 			}
 			if appLatestVersion < latestHeight {
 				from, to = earliestHeight, appLatestVersion
@@ -1252,7 +1252,7 @@ func ConvertStateChanges(cs *iavl.ChangeSet, sk string, version uint64) corestor
 }
 
 func applyChangeSetCommand() *cobra.Command { // migrate all version changeset from earliest+1 to latest height
-	// ./sahara-store-migrate v0 apply-changesets --v1-app /Users/wenqi/.saharad/data/application.db --v2-app /Users/wenqi/.saharad/data/application-v2.db --v2-iavl2 /Users/wenqi/.saharad/data/iavl2 --root /Users/wenqi/.saharad
+	// ./sahara-store-migrate v0 apply-changesets --v1-app /Users/wenqi/.saharad/data/application.db --v2-app /Users/wenqi/.saharad/data/application-v2.db --v2-iavl2 /Users/wenqi/.saharad/data/iavl2 --root /Users/wenqi/.saharad --migrate-from 3275518
 
 	var (
 		// dataPath    string
@@ -1262,6 +1262,7 @@ func applyChangeSetCommand() *cobra.Command { // migrate all version changeset f
 		rootPath    string
 		concurrency int
 		dbType      string
+		migrateFrom int64
 	)
 	cmd := &cobra.Command{
 		Use:   "apply-changesets",
@@ -1327,6 +1328,9 @@ func applyChangeSetCommand() *cobra.Command { // migrate all version changeset f
 			}
 
 			fmt.Println("Start applying changesets")
+			if migrateFrom > 0 {
+				from = migrateFrom
+			}
 			if err = ApplyChangeSet(v1appPath, storeKeys, from, to, commitStore, v1db.DB, dbType); err != nil {
 				panic(err)
 			}
@@ -1354,6 +1358,7 @@ func applyChangeSetCommand() *cobra.Command { // migrate all version changeset f
 		panic(err)
 	}
 	cmd.Flags().IntVar(&concurrency, "concurrency", 6, "Number of concurrent migrations")
+	cmd.Flags().Int64Var(&migrateFrom, "migrate-from", 0, "migrate from version, default 0 means the earliest version")
 
 	return cmd
 }
