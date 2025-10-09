@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"os"
+	"runtime"
 
 	"fmt"
 	"path/filepath"
@@ -62,6 +63,14 @@ const (
 	goleveldbType = "goleveldb"
 	pebbledbType  = "pebbledb"
 )
+
+// printMemoryUsage print current memory usage
+func printMemoryUsage(prefix string) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Printf("%s - Memory: Alloc=%d MB, Sys=%d MB, NumGC=%d\n",
+		prefix, m.Alloc/1024/1024, m.Sys/1024/1024, m.NumGC)
+}
 
 func metadataLatestCommand() *cobra.Command {
 	//  ./sahara-store-migrate v0 v45-metadata --db-v0 /Users/wenqi/.saharad/data --db-v2 /Users/wenqi/.saharad/data/application.db-v2/metadata.sqlite
@@ -1119,15 +1128,17 @@ func ApplyChangeSet(v1appPath string, storeKeys []string, from, to int64, v3Comm
 		defer appdb.Close()
 	}
 
-	versionChangeset := &corestore.Changeset{}
+	// batch process versions, avoid memory accumulation
+	const batchSize = 100
 	for v := from + 1; v <= to; v++ {
 		fmt.Println("applying changeset version: ", v)
 
-		versionChangeset.Version = uint64(v)
-		versionChangeset.Changes = make([]corestore.StateChanges, 0)
+		versionChangeset := &corestore.Changeset{
+			Version: uint64(v),
+			Changes: make([]corestore.StateChanges, 0, len(storeKeys)),
+		}
 
-		// new v1 ImmutableTree
-		// var singleVersionChangeset []*iavl.ChangeSet
+		// process changeset for each store
 		for _, sk := range storeKeys {
 			prefix := fmt.Sprintf("s/k:%s/", sk)
 			fmt.Println("read tree dir: ", v1appPath, "version: ", v-1, "prefix: ", prefix)
@@ -1145,15 +1156,34 @@ func ApplyChangeSet(v1appPath string, storeKeys []string, from, to int64, v3Comm
 			imtree := mtree.ImmutableTree
 			fmt.Println("ApplyChangeset mtree latest version: ", mtreeLatestVersion, "imtree version: ", imtree.Version())
 
-			imtree.TraverseStateChanges(v, v, func(ver int64, cs *iavl.ChangeSet) error {
-				versionChangeset.Changes = append(versionChangeset.Changes, ConvertStateChanges(cs, sk, uint64(ver)))
+			storeChanges := corestore.StateChanges{
+				Actor:        []byte(sk),
+				StateChanges: make([]corestore.KVPair, 0),
+			}
 
+			// process state changes
+			err = imtree.TraverseStateChanges(v, v, func(ver int64, cs *iavl.ChangeSet) error {
+				for _, p := range cs.Pairs {
+					storeChanges.StateChanges = append(storeChanges.StateChanges, corestore.KVPair{
+						Key:    p.Key,
+						Value:  p.Value,
+						Remove: p.Delete,
+					})
+				}
 				return nil
 			})
-		}
-		fmt.Printf("versioned changesests: %+v, version: %d\n", versionChangeset, v)
 
-		// apply changeset...
+			if err != nil {
+				return err
+			}
+
+			// only add to version changeset when store has changes
+			if len(storeChanges.StateChanges) > 0 {
+				versionChangeset.Changes = append(versionChangeset.Changes, storeChanges)
+			}
+		}
+
+		// apply changeset
 		if err := v3CommitStore.WriteChangeset(versionChangeset); err != nil {
 			fmt.Println("ApplyChangeset WriteChangeset error")
 			return err
@@ -1162,8 +1192,25 @@ func ApplyChangeSet(v1appPath string, storeKeys []string, from, to int64, v3Comm
 		_, err := v3CommitStore.Commit(uint64(v))
 		if err != nil {
 			fmt.Println("ApplyChangeset Commit error, v = ", v)
-
 			return err
+		}
+
+		// immediately clear changeset and its internal data
+		for i := range versionChangeset.Changes {
+			versionChangeset.Changes[i].StateChanges = nil
+		}
+		versionChangeset.Changes = nil
+		versionChangeset = nil
+
+		// force garbage collection after processing a certain number of versions
+		if (v-from)%batchSize == 0 {
+			fmt.Printf("Processed %d versions, triggering GC\n", v-from)
+			runtime.GC()
+			// print memory usage
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			fmt.Printf("Memory usage: Alloc=%d MB, Sys=%d MB, NumGC=%d, HeapObjects=%d\n",
+				m.Alloc/1024/1024, m.Sys/1024/1024, m.NumGC, m.HeapObjects)
 		}
 	}
 	return nil
@@ -1322,14 +1369,16 @@ func applyChangeSetCommand() *cobra.Command { // migrate all version changeset f
 			}
 
 			fmt.Println("Start applying changesets")
+			printMemoryUsage("Before processing")
+
 			if migrateFrom > 0 {
 				from = migrateFrom
 			}
 
-			// 使用实际的起始版本加载 commit store
+			// use actual start version to load commit store
 			startVersion := earliestHeight
 			if migrateFrom > 0 && migrateFrom > earliestHeight {
-				startVersion = migrateFrom // 从 migrateFrom 开始，因为 ApplyChangeSet 会从 from+1 开始处理
+				startVersion = migrateFrom // start from migrateFrom, because ApplyChangeSet will process from from+1
 			}
 
 			fmt.Println("Preparing CommitStore with start version:", startVersion)
@@ -1337,9 +1386,14 @@ func applyChangeSetCommand() *cobra.Command { // migrate all version changeset f
 			if err != nil {
 				panic(err)
 			}
+
+			// printMemoryUsage("After preparing CommitStore")
+
 			if err = ApplyChangeSet(v1appPath, storeKeys, from, to, commitStore, v1db.DB, dbType); err != nil {
 				panic(err)
 			}
+
+			// printMemoryUsage("After applying changesets")
 
 			return nil
 		},
