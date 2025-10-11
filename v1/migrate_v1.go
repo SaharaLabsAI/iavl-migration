@@ -1147,7 +1147,6 @@ func ApplyChangeSet(v1appPath string, storeKeys []string, from, to int64, v3Comm
 			mtree := iavl.NewMutableTree(wrapper.NewDBWrapper(db), 100, false, iavl.NewNopLogger())
 			mtreeLatestVersion, err := mtree.LoadVersion(v - 1)
 			if err != nil {
-				db.Close()
 				mtree = nil
 				if errors.Is(err, iavl.ErrVersionDoesNotExist) {
 					continue
@@ -1177,7 +1176,6 @@ func ApplyChangeSet(v1appPath string, storeKeys []string, from, to int64, v3Comm
 
 			if err != nil {
 				mtree = nil
-				db.Close()
 				return err
 			}
 
@@ -1187,7 +1185,6 @@ func ApplyChangeSet(v1appPath string, storeKeys []string, from, to int64, v3Comm
 			}
 
 			mtree = nil
-			db.Close()
 		}
 
 		// apply changeset
