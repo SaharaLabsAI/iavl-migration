@@ -1115,6 +1115,8 @@ func ApplyChangeSet(v1appPath string, storeKeys []string, from, to int64, v3Comm
 	var (
 		appdb dbm.DB
 		err   error
+		db    *dbm.PrefixDB
+		mtree *iavl.MutableTree
 	)
 
 	if v1appDB != nil {
@@ -1142,11 +1144,12 @@ func ApplyChangeSet(v1appPath string, storeKeys []string, from, to int64, v3Comm
 		for _, sk := range storeKeys {
 			prefix := fmt.Sprintf("s/k:%s/", sk)
 			fmt.Println("read tree dir: ", v1appPath, "version: ", v-1, "prefix: ", prefix)
-			db := dbm.NewPrefixDB(appdb, []byte(prefix))
+			db = dbm.NewPrefixDB(appdb, []byte(prefix))
 
-			mtree := iavl.NewMutableTree(wrapper.NewDBWrapper(db), 100, false, iavl.NewNopLogger())
+			mtree = iavl.NewMutableTree(wrapper.NewDBWrapper(db), 100, false, iavl.NewNopLogger())
 			mtreeLatestVersion, err := mtree.LoadVersion(v - 1)
 			if err != nil {
+				db = nil
 				mtree = nil
 				if errors.Is(err, iavl.ErrVersionDoesNotExist) {
 					continue
@@ -1175,6 +1178,7 @@ func ApplyChangeSet(v1appPath string, storeKeys []string, from, to int64, v3Comm
 			})
 
 			if err != nil {
+				db = nil
 				mtree = nil
 				return err
 			}
@@ -1184,6 +1188,7 @@ func ApplyChangeSet(v1appPath string, storeKeys []string, from, to int64, v3Comm
 				versionChangeset.Changes = append(versionChangeset.Changes, storeChanges)
 			}
 
+			db = nil
 			mtree = nil
 		}
 
